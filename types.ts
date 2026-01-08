@@ -1,10 +1,3 @@
-
-export interface User {
-  email: string;
-  name?: string;
-  preferences?: string[]; // List of favorite categories
-}
-
 export interface CulturalEvent {
   id: string;
   title: string;
@@ -13,10 +6,9 @@ export interface CulturalEvent {
   location: string;
   venue?: string;
   city: string;
-  category: EventCategory;
+  category: string;
   imageUrl: string;
   price?: string;
-  organizer?: string;
   tags: string[];
   link?: string;
 }
@@ -31,13 +23,8 @@ export enum EventCategory {
   OTHER = 'Annet'
 }
 
-export interface SearchState {
-  query: string;
-  city: string;
-  category: EventCategory | 'Alle';
-}
-
-export interface GroundingSource {
-  title: string;
-  uri: string;
+export interface User {
+  email: string;
+  name?: string;
+  preferences?: string[];
 }

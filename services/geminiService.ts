@@ -1,20 +1,18 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { CulturalEvent, EventCategory } from "../types";
-
-// Always use process.env.API_KEY directly for initialization as per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { CulturalEvent } from "../types";
 
 export const discoverEventsWithAI = async (prompt: string): Promise<{
   events: Partial<CulturalEvent>[],
   sources: { title: string, uri: string }[]
 }> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Finn aktuelle kulturarrangementer i Norge basert på denne forespørselen: "${prompt}". 
-      Returner en liste over spesifikke arrangementer som skjer i nær fremtid. 
-      Vennligst inkluder navn, by, kategori, kort beskrivelse og dato hvis mulig.`,
+      contents: `Finn dagsaktuelle kulturarrangementer i Norge basert på forespørselen: "${prompt}". 
+      Bruk Google Search for å finne ekte datoer og steder for 2024/2025. 
+      Returner en JSON-liste med arrangementer.`,
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
@@ -31,9 +29,10 @@ export const discoverEventsWithAI = async (prompt: string): Promise<{
                   date: { type: Type.STRING },
                   city: { type: Type.STRING },
                   category: { type: Type.STRING },
-                  venue: { type: Type.STRING }
+                  venue: { type: Type.STRING },
+                  link: { type: Type.STRING }
                 },
-                required: ["title", "city"]
+                required: ["title", "city", "date"]
               }
             }
           }
@@ -41,11 +40,8 @@ export const discoverEventsWithAI = async (prompt: string): Promise<{
       },
     });
 
-    // Access text as a property, not a method
-    const text = response.text || "{}";
-    const json = JSON.parse(text);
+    const json = JSON.parse(response.text || "{\"events\":[]}");
     
-    // Extract grounding sources when using googleSearch tool
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.filter(chunk => chunk.web)
       ?.map(chunk => ({
@@ -58,28 +54,7 @@ export const discoverEventsWithAI = async (prompt: string): Promise<{
       sources: sources
     };
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("AI Error:", error);
     return { events: [], sources: [] };
-  }
-};
-
-export const getMoodRecommendations = async (mood: string): Promise<string[]> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Gi meg 5 sjangre eller typer kulturarrangementer som passer til humøret: "${mood}". Returner kun en JSON array av strenger.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING }
-      }
-    }
-  });
-  
-  try {
-    // Access text as a property
-    return JSON.parse(response.text || "[]");
-  } catch {
-    return [];
   }
 };
