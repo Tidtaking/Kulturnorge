@@ -1,0 +1,7 @@
+{
+  "name": "KulturNorge",
+  "description": "En alt-i-ett plattform for å oppdage konserter, teater, festivaler og kulturarrangementer over hele Norge, drevet av AI.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
