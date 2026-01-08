@@ -3,14 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KulturNorge - Oppdag kultur i hele landet</title>
+    <title>KulturNorge - Finn alt som skjer</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="index.css">
+    <!-- Bruker ./ for å tvinge lokal mappe -->
+    <link rel="stylesheet" href="./index.css">
     
     <script type="importmap">
     {
@@ -23,9 +27,11 @@
       }
     }
     </script>
-    <script type="module" src="index.tsx"></script>
+    
+    <!-- Bruker ./ for å tvinge lokal mappe -->
+    <script type="module" src="./index.tsx"></script>
   </head>
-  <body class="bg-[#0a0f1d] text-slate-100">
+  <body class="bg-[#030712] text-slate-100 overflow-x-hidden">
     <div id="root"></div>
   </body>
 </html>
