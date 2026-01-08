@@ -25,8 +25,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('Alle');
   const [selectedCategory, setSelectedCategory] = useState('Alle');
-  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-  const [showRecommendedOnly, setShowRecommendedOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState<'explore' | 'favorites' | 'foryou'>('explore');
   
   const [selectedEvent, setSelectedEvent] = useState<CulturalEvent | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -56,24 +55,28 @@ const App: React.FC = () => {
       // Filter out past events
       .filter(event => event.date >= today);
 
-    // Apply preferences if logged in and in "Recommended" mode or just by default if nothing else is selected
-    if (user && user.preferences && user.preferences.length > 0 && (showRecommendedOnly || (!searchQuery && selectedCity === 'Alle' && selectedCategory === 'Alle' && !showOnlyFavorites))) {
+    // Filter based on active tab
+    if (activeTab === 'favorites') {
+      result = result.filter(event => favorites.has(event.id));
+    } else if (activeTab === 'foryou' && user?.preferences) {
       result = result.filter(event => user.preferences?.includes(event.category));
+    } else if (activeTab === 'explore' && user?.preferences && !searchQuery && selectedCity === 'Alle' && selectedCategory === 'Alle') {
+        // Default smart view: suggest some preferences even in explore
+        // But for now, let's keep explore pure unless "For You" is clicked
     }
 
-    // Apply normal filters
+    // Apply manual filters
     result = result.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           event.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCity = selectedCity === 'Alle' || event.city === selectedCity;
       const matchesCategory = selectedCategory === 'Alle' || event.category === selectedCategory;
-      const matchesFavorite = !showOnlyFavorites || favorites.has(event.id);
-      return matchesSearch && matchesCity && matchesCategory && matchesFavorite;
+      return matchesSearch && matchesCity && matchesCategory;
     });
 
     // Sort by date ascending (closest events first)
     return result.sort((a, b) => a.date.localeCompare(b.date));
-  }, [events, searchQuery, selectedCity, selectedCategory, showOnlyFavorites, showRecommendedOnly, favorites, user]);
+  }, [events, searchQuery, selectedCity, selectedCategory, activeTab, favorites, user]);
 
   const handleAiSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,8 +108,7 @@ const App: React.FC = () => {
         setSearchQuery('');
         setSelectedCity('Alle');
         setSelectedCategory('Alle');
-        setShowOnlyFavorites(false);
-        setShowRecommendedOnly(false);
+        setActiveTab('explore');
       }
     } catch (err) {
       console.error(err);
@@ -138,66 +140,68 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
-    setShowRecommendedOnly(false);
+    setActiveTab('explore');
   };
 
-  const isShowingPreferences = user && user.preferences && user.preferences.length > 0 && !searchQuery && selectedCity === 'Alle' && selectedCategory === 'Alle' && !showOnlyFavorites;
-
   return (
-    <div className="min-h-screen pb-20">
-      <header className="sticky top-0 z-40 w-full glass border-b border-slate-800">
+    <div className="min-h-screen bg-[#0a0f1d] pb-24 md:pb-8">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 w-full glass border-b border-white/5 safe-top">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setShowOnlyFavorites(false); setShowRecommendedOnly(false); }}>
-            <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">K</span>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('explore')}>
+            <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20">
+              <span className="text-white font-bold text-lg">K</span>
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent hidden xs:block">
               KulturNorge
             </h1>
           </div>
-          <nav className="hidden md:flex items-center gap-8">
+          
+          <nav className="hidden md:flex items-center gap-6">
             <button 
-              onClick={() => { setShowOnlyFavorites(false); setShowRecommendedOnly(false); }}
-              className={`transition-colors ${!showOnlyFavorites && !showRecommendedOnly ? 'text-cyan-400' : 'text-slate-300 hover:text-white'}`}
+              onClick={() => setActiveTab('explore')}
+              className={`transition-colors font-medium ${activeTab === 'explore' ? 'text-cyan-400' : 'text-slate-400 hover:text-white'}`}
             >
               Utforsk
             </button>
             {user && (
               <button 
-                onClick={() => { setShowOnlyFavorites(false); setShowRecommendedOnly(true); }}
-                className={`transition-colors ${showRecommendedOnly ? 'text-cyan-400' : 'text-slate-300 hover:text-white'}`}
+                onClick={() => setActiveTab('foryou')}
+                className={`transition-colors font-medium ${activeTab === 'foryou' ? 'text-cyan-400' : 'text-slate-400 hover:text-white'}`}
               >
                 For deg
               </button>
             )}
             <button 
-              onClick={() => { setShowOnlyFavorites(true); setShowRecommendedOnly(false); }}
-              className={`flex items-center gap-2 transition-colors ${showOnlyFavorites ? 'text-rose-400' : 'text-slate-300 hover:text-white'}`}
+              onClick={() => setActiveTab('favorites')}
+              className={`flex items-center gap-2 transition-colors font-medium ${activeTab === 'favorites' ? 'text-rose-400' : 'text-slate-400 hover:text-white'}`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={showOnlyFavorites ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
               Favoritter
             </button>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs text-slate-400">Logget inn som</p>
-                  <p className="text-sm font-semibold text-white truncate max-w-[120px]">{user.name}</p>
+              <div className="flex items-center gap-2 md:gap-3 bg-slate-900/50 p-1 md:pr-3 rounded-full border border-white/5">
+                <div className="w-8 h-8 rounded-full bg-cyan-600 flex items-center justify-center text-xs font-bold text-white uppercase">
+                  {user.name?.[0]}
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-[10px] text-slate-500 uppercase leading-none mb-0.5">Bruker</p>
+                  <p className="text-xs font-bold text-white truncate max-w-[80px]">{user.name}</p>
                 </div>
                 <button 
                   onClick={handleLogout}
-                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
+                  className="p-1.5 rounded-full hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-all"
                   title="Logg ut"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                 </button>
               </div>
             ) : (
               <button 
                 onClick={() => setIsLoginModalOpen(true)}
-                className="px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-bold transition-all border border-white/5 active:scale-95"
+                className="px-4 md:px-6 py-2 rounded-full bg-cyan-600 hover:bg-cyan-500 text-sm font-bold transition-all shadow-lg shadow-cyan-600/10 active:scale-95"
               >
                 Logg inn
               </button>
@@ -206,142 +210,208 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        {!showOnlyFavorites && (
-          <>
-            <div className="mb-12 text-center md:text-left">
-              <h2 className="text-4xl md:text-6xl font-black mb-4 leading-tight">
-                Oppdag <span className="text-cyan-400">øyeblikkene</span> <br /> som former Norge.
+      {/* Mobile Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-white/5 px-6 pb-6 pt-3 flex justify-between items-center safe-bottom">
+        <button 
+          onClick={() => setActiveTab('explore')}
+          className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'explore' ? 'text-cyan-400 scale-110' : 'text-slate-500'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="14.31" y1="8" x2="20.05" y2="17.94"></line><line x1="9.69" y1="8" x2="21.17" y2="8"></line><line x1="7.38" y1="12" x2="13.12" y2="2.06"></line><line x1="9.69" y1="16" x2="3.95" y2="6.06"></line><line x1="14.31" y1="16" x2="2.83" y2="16"></line><line x1="16.62" y1="12" x2="10.88" y2="21.94"></line></svg>
+          <span className="text-[10px] font-bold">Utforsk</span>
+        </button>
+        <button 
+          onClick={() => {
+            if (!user) setIsLoginModalOpen(true);
+            else setActiveTab('foryou');
+          }}
+          className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'foryou' ? 'text-cyan-400 scale-110' : 'text-slate-500'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span className="text-[10px] font-bold">For deg</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('favorites')}
+          className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'favorites' ? 'text-rose-400 scale-110' : 'text-slate-500'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={activeTab === 'favorites' ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          <span className="text-[10px] font-bold">Favoritter</span>
+        </button>
+      </div>
+
+      <main className="container mx-auto px-4 py-6 md:py-10">
+        {/* Dynamic Header Titles */}
+        <div className="mb-8 md:mb-12">
+          {activeTab === 'explore' && (
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-black mb-3 leading-tight tracking-tight">
+                Gjør deg klar for <br /> <span className="text-cyan-400">opplevelser</span> i Norge.
               </h2>
-              <p className="text-slate-400 text-lg max-w-2xl">
-                {user ? `Velkommen tilbake, ${user.name}! Her er kommende arrangementer ${isShowingPreferences ? 'basert på din smak' : 'over hele landet'}.` : 'Fra de mørkeste kjellerklubbene i Oslo til de lyseste sommerfestivalene i Lofoten. Vi samler alt på ett sted.'}
+              <p className="text-slate-400 text-sm md:text-lg max-w-2xl mx-auto md:mx-0">
+                Alt fra små gallerier til store stadionkonserter. Vi hjelper deg å finne det neste store.
               </p>
             </div>
-
-            <div className="mb-12 glass p-6 md:p-8 rounded-3xl border-cyan-500/20 shadow-xl shadow-cyan-500/5">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Spør vår AI-guide</h3>
-                  <p className="text-slate-400 text-sm">Finn noe spesifikt eller få anbefalinger basert på dine interesser</p>
-                </div>
-              </div>
-              
-              <form onSubmit={handleAiSearch} className="relative">
-                <input 
-                  type="text"
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="F.eks. 'Hva skjer i Tromsø til helgen?' eller 'Finn jazzkonserter i Oslo i oktober'"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all pr-32"
-                />
-                <button 
-                  type="submit"
-                  disabled={isAiLoading}
-                  className="absolute right-2 top-2 bottom-2 px-6 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 transition-all font-bold flex items-center gap-2"
-                >
-                  {isAiLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Spør'
-                  )}
-                </button>
-              </form>
+          )}
+          {activeTab === 'favorites' && (
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl md:text-5xl font-black mb-2 text-rose-400">Favoritter</h2>
+              <p className="text-slate-400 text-sm md:text-lg">Dine lagrede øyeblikk på ett sted.</p>
             </div>
-          </>
-        )}
-
-        {/* Filter Toolbar */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="flex-grow relative">
-            <input 
-              type="text" 
-              placeholder="Søk i titler og beskrivelser..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 px-12 focus:outline-none focus:border-cyan-500 transition-all"
-            />
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          </div>
-          
-          <div className="flex gap-4">
-            <select 
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 appearance-none min-w-[140px]"
-            >
-              <option value="Alle">Hele Norge</option>
-              {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
-            </select>
-            
-            <select 
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 appearance-none min-w-[140px]"
-            >
-              <option value="Alle">Alle kategorier</option>
-              {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-          </div>
+          )}
+          {activeTab === 'foryou' && (
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl md:text-5xl font-black mb-2 text-cyan-400">Håndplukket for deg</h2>
+              <p className="text-slate-400 text-sm md:text-lg">Basert på dine interesser: {user?.preferences?.join(', ')}</p>
+            </div>
+          )}
         </div>
 
-        {/* Results Info */}
-        {(isShowingPreferences || showRecommendedOnly) && (
-          <div className="mb-6 flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-2xl">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-cyan-500 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        {/* AI Box - Unified and Mobile Friendly */}
+        <section className="mb-10 md:mb-14">
+          <div className="glass p-5 md:p-8 rounded-3xl border-cyan-500/10 shadow-xl relative overflow-hidden group">
+            <div className="absolute -right-12 -top-12 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full group-hover:bg-cyan-500/20 transition-all duration-500"></div>
+            
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               </div>
-              <div>
-                <p className="text-sm font-bold text-cyan-400">Personaliserte anbefalinger</p>
-                <p className="text-xs text-slate-400">Viser arrangementer basert på dine interesser: {user?.preferences?.join(', ')}</p>
-              </div>
+              <h3 className="text-lg font-bold">Smarte forslag</h3>
             </div>
-            <button 
-              onClick={() => { setShowRecommendedOnly(false); setSearchQuery(' '); setTimeout(() => setSearchQuery(''), 0); }}
-              className="text-xs font-bold text-slate-400 hover:text-white underline underline-offset-4"
-            >
-              Vis alle
-            </button>
+            
+            <form onSubmit={handleAiSearch} className="relative flex flex-col sm:flex-row gap-3">
+              <input 
+                type="text"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Hva skjer i Bergen neste helg?"
+                className="flex-grow bg-[#151d2e] border border-white/5 rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all text-sm"
+              />
+              <button 
+                type="submit"
+                disabled={isAiLoading}
+                className="px-8 py-4 rounded-2xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 transition-all font-bold text-sm shadow-lg shadow-cyan-600/20 active:scale-95 flex items-center justify-center gap-2"
+              >
+                {isAiLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Finn nå'
+                )}
+              </button>
+            </form>
+            
+            {aiSources.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-3 items-center px-2">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Søkekilder:</span>
+                {aiSources.map((source, i) => (
+                  <a key={i} href={source.uri} target="_blank" rel="noopener noreferrer" className="text-[11px] text-cyan-400/80 hover:text-cyan-400 transition-colors flex items-center gap-1 underline underline-offset-4 decoration-cyan-500/20">
+                    {source.title.slice(0, 20)}...
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </section>
+
+        {/* Filter Section - Mobile Optimised Tabs & Selects */}
+        <section className="mb-10">
+          <div className="flex flex-col gap-6">
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Søk i titler, artister eller steder..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#151d2e] border border-white/5 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all text-sm shadow-inner"
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar scroll-smooth">
+              <div className="flex-shrink-0 relative group">
+                <select 
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="bg-[#151d2e] border border-white/5 rounded-xl py-3 pl-4 pr-10 focus:outline-none text-xs font-bold appearance-none cursor-pointer hover:bg-[#1c263d] transition-colors"
+                >
+                  <option value="Alle">Hele landet</option>
+                  {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+
+              <div className="flex-shrink-0 relative">
+                <select 
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="bg-[#151d2e] border border-white/5 rounded-xl py-3 pl-4 pr-10 focus:outline-none text-xs font-bold appearance-none cursor-pointer hover:bg-[#1c263d] transition-colors"
+                >
+                  <option value="Alle">Kategorier</option>
+                  {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+
+              {/* Quick filter badges */}
+              <button 
+                onClick={() => setSearchQuery('') || setSelectedCity('Alle') || setSelectedCategory('Alle')}
+                className="flex-shrink-0 px-4 py-3 rounded-xl bg-slate-800/40 text-[10px] font-black uppercase tracking-tighter hover:bg-slate-800 transition-colors"
+              >
+                Nullstill
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Results Grid */}
-        {filteredEvents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map(event => (
-              <EventCard 
-                key={event.id} 
-                event={event} 
-                onClick={setSelectedEvent} 
-                isFavorite={favorites.has(event.id)}
-                onToggleFavorite={toggleFavorite}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 glass rounded-3xl">
-            <div className="text-slate-500 mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        <section>
+          {filteredEvents.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {filteredEvents.map(event => (
+                <EventCard 
+                  key={event.id} 
+                  event={event} 
+                  onClick={setSelectedEvent} 
+                  isFavorite={favorites.has(event.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              ))}
             </div>
-            <h3 className="text-xl font-medium text-slate-300">
-              {showOnlyFavorites ? 'Du har ingen favoritter enda' : 'Ingen kommende arrangementer funnet'}
-            </h3>
-            <p className="text-slate-500 mt-2">
-              {showOnlyFavorites ? 'Trykk på hjerte-ikonet på et arrangement for å lagre det.' : 'Prøv å endre filtrene eller spør AI-guiden ovenfor.'}
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 px-6 glass rounded-[2.5rem] text-center border-white/5">
+              <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-600"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-300">
+                {activeTab === 'favorites' ? 'Ingen favoritter lagret' : 
+                 activeTab === 'foryou' ? 'Ingen treff på dine preferanser' :
+                 'Ingen arrangementer funnet'}
+              </h3>
+              <p className="text-slate-500 mt-2 max-w-xs text-sm">
+                {activeTab === 'favorites' ? 'Trykk på hjerte-ikonet på et arrangement for å lagre det til senere.' : 
+                 'Prøv et bredere søk eller endre by og kategori i filtrene.'}
+              </p>
+              {activeTab !== 'explore' && (
+                <button 
+                  onClick={() => setActiveTab('explore')}
+                  className="mt-8 px-8 py-3 rounded-2xl bg-cyan-600/10 text-cyan-400 font-bold text-sm border border-cyan-500/20 hover:bg-cyan-600/20 transition-all"
+                >
+                  Utforsk alt
+                </button>
+              )}
+            </div>
+          )}
+        </section>
       </main>
 
-      <footer className="container mx-auto px-4 py-12 border-t border-slate-800 text-center">
-        <p className="text-slate-500 text-sm">
-          &copy; 2024 KulturNorge. Utviklet for å koble mennesker med kultur.
+      <footer className="container mx-auto px-6 py-16 border-t border-white/5 text-center mt-10">
+        <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center mx-auto mb-6 border border-white/5">
+          <span className="text-slate-500 font-bold">K</span>
+        </div>
+        <p className="text-slate-600 text-[11px] font-bold uppercase tracking-[0.2em]">
+          &copy; 2024 KulturNorge &bull; Powered by Gemini AI
         </p>
       </footer>
 
+      {/* Overlays */}
       <EventModal 
         event={selectedEvent} 
         onClose={() => setSelectedEvent(null)} 
@@ -352,6 +422,17 @@ const App: React.FC = () => {
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={handleLogin}
       />
+      
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem); }
+        @media (max-width: 480px) {
+          .xs\\:hidden { display: none; }
+          .xs\\:block { display: block; }
+        }
+      `}</style>
     </div>
   );
 };
